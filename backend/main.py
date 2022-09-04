@@ -45,14 +45,12 @@ class DodaneIgre(Resource):
     def options(self):
         return _build_cors_response()
     def get(self, uporabnisko_ime):
-            cursor = mydb.cursor()
             print(uporabnisko_ime)
             cursor.execute("""SELECT * FROM igre WHERE uporabnisko_ime = %s""", [uporabnisko_ime])
             rows = cursor.fetchall()
             r = [dict((cursor.description[i][0], value)
                     for i, value in enumerate(row)) for row in rows]
             print(r)
-            cursor.close()
             return json.dumps(r) 
 
 
@@ -122,7 +120,6 @@ class DodanaIgra(Resource):
     def options(self):
         return _build_cors_response()
     def get(self, id_igre):
-        cursor = mydb.cursor()
         try:
             cursor.execute("""select * from igre WHERE ID_igre = %s""", [id_igre])
             rows = cursor.fetchall()
@@ -155,13 +152,12 @@ class Uporabnik(Resource):
     def options(self):
         return _build_cors_response()
     def get(self, uporabnisko_ime):
-        cursor = mydb.cursor()
         try:
             cursor.execute("""select * from uporabnik WHERE uporabnisko_ime = %s""", [uporabnisko_ime])
             rows = cursor.fetchall()
             r = [dict((cursor.description[i][0], value)
                     for i, value in enumerate(row)) for row in rows]
-            cursor.close()
+
             return json.dumps(r) 
         except Exception as e:
             print(e)
@@ -179,6 +175,13 @@ class Uporabnik(Resource):
         args = parser.parse_args()  # parse arguments to dictionary
         print(args)
 
+        cursor.execute("""SELECT * FROM uporabnik WHERE uporabnisko_ime = %s""", [args['uporabnisko_ime']])
+        user = cursor.fetchone()
+       
+        if user != None:
+            return print("uporabnik že obstaja")
+
+  
         dodaj_uporabnika_sql = """INSERT INTO uporabnik(uporabnisko_ime, geslo, ime, priimek, email) 
                                 VALUES(%s, %s, %s, %s, %s)"""
         print(args['geslo'])
@@ -189,7 +192,6 @@ class Uporabnik(Resource):
                         args['email']])
         response = jsonify(message='Uporabnik dodan', id=cursor.lastrowid)
         mydb.commit()
-        cursor.close()
         # response.data = cursor.lastrowid
         response.status_code = 200
         return _corsify_actual_response(response)
@@ -206,7 +208,6 @@ class Skupine(Resource):
         try:
             cursor.execute("""select * from skupine""")
             rows = cursor.fetchall()
-            cursor.close()
             return jsonify(rows)
         except Exception as e:
             print(e)
@@ -244,7 +245,7 @@ class Skupina(Resource):
             cursor.execute("""select * from skupine WHERE uporabnisko_ime = %s AND id_skupine = %s""", [uporabnisko_ime,
                                                                                                         id_skupine])
             rows = cursor.fetchall()
-            cursor.close()
+
             return jsonify(rows)
         except Exception as e:
             print(e)
@@ -257,14 +258,14 @@ class Dogodki(Resource):
     def options(self):
         return _build_cors_response()
     def get(self, uporabnisko_ime):
-        cursor = mydb.cursor()
+        
         try:
             print(type(uporabnisko_ime))
             cursor.execute("""SELECT * FROM dogodek WHERE uporabnisko_ime = %s""", [uporabnisko_ime])
             rows = cursor.fetchall()
             r = [dict((cursor.description[i][0], value)
                     for i, value in enumerate(row)) for row in rows]
-            cursor.close()
+        
             return json.dumps(r) 
         except Exception as e:
             print(e)
@@ -320,7 +321,7 @@ class Dogodek(Resource):
     def options(self):
         return _build_cors_response()
     def get(self, uporabnisko_ime, id_dogodka):
-        cursor = mydb.cursor()
+
         try:
 
             cursor.execute("""select * from dogodek WHERE uporabnisko_ime = %s AND id_dogodka = %s""", [uporabnisko_ime,
@@ -328,7 +329,7 @@ class Dogodek(Resource):
             rows = cursor.fetchall()
             r = [dict((cursor.description[i][0], value)
                     for i, value in enumerate(row)) for row in rows]
-            cursor.close()
+     
             return json.dumps(r) 
         except Exception as e:
             print(e)
@@ -353,7 +354,7 @@ class OdigraneIgre(Resource):
     @auth.login_required
     @cross_origin(origin='*')
     def get(self, uporabnisko_ime):
-        cursor = mydb.cursor()
+     
         try:
             cursor.execute("""select * from odigrana_igra WHERE uporabnisko_ime = %s """, [uporabnisko_ime])
             rows = cursor.fetchall()
@@ -399,9 +400,6 @@ class User:
         return generate_password_hash(password)
 
     def verify_password(self, password):
-        print("!!!!!!!!!!!!")
-        print(password)
-        print(self.password_hash)
         return check_password_hash(self.password_hash, password)
 
     def generate_auth_token(self, expires_in=600):
@@ -413,12 +411,10 @@ class User:
     @staticmethod
     def verify_auth_token(token):
         try:
-            cursor = mydb.cursor()
             data = jwt.decode(token, options={"verify_signature": False},
                               algorithm='HS256')
             cursor.execute("""SELECT * FROM uporabnik WHERE uporabnisko_ime = %s""", [data['uporabnisko_ime']])
             user = cursor.fetchone()
-            cursor.close()
         except:
             return
         return user
@@ -431,23 +427,17 @@ def verify_password(username_or_token, password = None):
     user = User.verify_auth_token(username_or_token)
     print(user)
     if not user:
-        cursor = mydb.cursor()
         prijavi_uporabnika_sql = """SELECT * FROM uporabnik WHERE uporabnisko_ime = %s"""
         cursor.execute(prijavi_uporabnika_sql, [username_or_token])
         user1 = cursor.fetchone()
         if user1 == None:
             return print("user does not exist")
         user = User(user1[0], user1[1])
-        
-        print(username_or_token)
-        print(password)
-        print(".............")
-        print(user.verify_password(password))
+
         if not user.verify_password(password):
             print("PASSWORD FALSE")
             return False
-    cursor.close()
-    g.user = user if user else  print("User does not exist")
+    g.user = user
     return True
 
 
